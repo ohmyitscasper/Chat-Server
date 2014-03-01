@@ -161,8 +161,6 @@ void traverse(List *list) {
   Node *temp = list->head;
   while(temp) {
     UserData *data = (UserData *)temp->data;
-    if(!data)
-      continue;
     printf("Name: %s\n", data->userName); 
     printf("Logged In: %d\n", data->loggedIn);
     temp=temp->next;
@@ -190,8 +188,6 @@ void whoelse(List *list, char *listOfUsers, void *ptr, pthread_mutex_t *mutex) {
   Node *temp = list->head;
   while(temp) {
     UserData *data = (UserData *)temp->data;
-    if(!data)
-      continue;
     if(data->loggedIn && data!=ptr) {  //The user is logged in currently
       strcat(listOfUsers, data->userName);
       strcat(listOfUsers, "\n");
@@ -209,8 +205,6 @@ void wholasthr(List *list, char *listOfUsers, void *ptr, int timeBack, pthread_m
   Node *temp = list->head;
   while(temp) {
     UserData *data = (UserData *)temp->data;
-    if(!data)
-      continue;
     /*
         The three conditions when we should return the name are:
           1. Logged in currently
@@ -234,8 +228,6 @@ void broadcastMessage(List *list, char *message, int len, void (*fn)(void *, cha
   Node *temp = list->head;
   while(temp) {
     UserData *data = (UserData *)temp->data;
-    if(!data)
-      continue;
     if(data->loggedIn) {  //The user is logged in currently
       fn(data, message, len);
     }
@@ -244,6 +236,19 @@ void broadcastMessage(List *list, char *message, int len, void (*fn)(void *, cha
   pthread_mutex_unlock(mutex);
 }
 
+
+void offlineMessages(List *list, int fd, void (*fn)(int, char *, int), pthread_mutex_t *mutex) {
+  pthread_mutex_lock(mutex);
+  Node *temp = list->head;
+  int len;
+  while(temp) {
+    char *data = (char *)temp->data;
+    len = strlen(data);
+    fn(fd, data, len);
+    temp=temp->next;
+  }
+  pthread_mutex_unlock(mutex);
+}
 
 
 //Don't need to make these thread safe because assuming it will only be used
@@ -266,5 +271,14 @@ void deleteList(List *list) {
   while (list->head) {
     void *temp = popFront(list);
     free(temp);
+  }
+}
+
+
+void deleteOfflineMessageList(List *list) {
+  while(list->head) {
+    UserData *temp = (UserData *)popFront(list);
+    deleteList((List *)temp->offlineMessages);
+    free(temp->offlineMessages);
   }
 }

@@ -18,7 +18,6 @@
 #define FILELINES 9
 #define MAXRECVBUF 1000
 #define BCASTSIZE 200
-#define MSGSIZE 200
 
 /* Just uselessly made character constants for the commands. */
 #define WHOELSE   7
@@ -52,6 +51,7 @@ int servFd;
 void Die(char *);
 void *threadFn(void *);
 void broadcast(void *, char *, int);
+void sendMessages(int, char *, int);
 int checkUserName(char *);
 int checkPassword(char *, int);
 void ctrlCHandler(int);
@@ -114,7 +114,8 @@ int main(int argc, char **argv) {
     user = malloc(sizeof(UserData));
     memset(user, 0, sizeof(UserData));
     memcpy(user->userName, usernames[a], strlen(usernames[a]));
-    printf("length: %d\n", strlen(usernames[a]));
+    user->offlineMessages = malloc(sizeof(List));   //Allocating the offline messages list.
+    initialize((List *)user->offlineMessages);
     insert(allUsers, user, &mutex);
   }
 
@@ -341,6 +342,8 @@ void *threadFn(void *arg) {
 
   now = time(NULL);
 
+  write(mySock, "Welcome to the chat server!\n", 28);
+
   if(newUser) { //We're dealing with a new user here, so we have to allocate memory for him
     //Now that we have authenticated a user, we are ready to add the user to our list of users. 
     currentUser = (UserData *)malloc(sizeof(UserData));
@@ -358,8 +361,13 @@ void *threadFn(void *arg) {
     currentUser->sockNum = mySock;
     currentUser->lastLogin = now;
     currentUser->loggedIn = 1;
+
+    //We have some offline messages that we have to print. 
+    write(mySock, "Printing offline messages.\n", 27);
+    offlineMessages((List *)currentUser->offlineMessages, mySock, sendMessages, &mutex);
+    write(mySock, "\n", 1);
+    deleteList((List *)currentUser->offlineMessages);
   }
-  write(mySock, "Welcome to the chat server!\n", 28);
 
   while(1) {
     printf("\nTraversing all users:\n");
@@ -476,7 +484,10 @@ void *threadFn(void *arg) {
         } 
         else {  
           //Offline messaging procedure
-
+          List *offlineMsg = (List *)toUser->offlineMessages;
+          char *offlineMessage = malloc(messageLen);
+          memcpy(offlineMessage, message, messageLen);
+          insert(offlineMsg, offlineMessage, &mutex);
         }
 
       } else {  //The user don't exist or trying to message myself
@@ -525,6 +536,12 @@ void *threadFn(void *arg) {
 void broadcast(void *ptr, char *message, int len) {
   UserData *data = (UserData *)ptr;
   int sock = data->sockNum;
+  write(sock, "\n", 1);
+  write(sock, message, len);
+  write(sock, "\n", 1);
+}
+
+void sendMessages(int sock, char *message, int len) {
   write(sock, "\n", 1);
   write(sock, message, len);
   write(sock, "\n", 1);
@@ -598,7 +615,7 @@ void ctrlCHandler(int sig) {
 
   //Have to cancel all of the threads here. 
   cancelThreads(threads);
-
+  deleteOfflineMessageList(allUsers);
   deleteList(allUsers);
   free(allUsers);
   deleteList(threads);

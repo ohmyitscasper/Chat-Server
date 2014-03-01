@@ -3,6 +3,8 @@
 
 #define MAXCHARS 50
 #define MAXUSERS 100
+#define MAXMESSAGES 10 	//Number of max offline messages
+#define MSGSIZE 200
 
 typedef struct UserData {
   unsigned long IP;	//What's this user's IP number?
@@ -11,6 +13,7 @@ typedef struct UserData {
   time_t lastLogout;	//When did this user last log out?
   char userName[MAXCHARS];	//Whats this users name?
   int loggedIn;	//Is this user logged in?
+  void *offlineMessages;
 } UserData;
 
 
