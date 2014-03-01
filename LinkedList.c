@@ -237,19 +237,6 @@ void broadcastMessage(List *list, char *message, int len, void (*fn)(void *, cha
 }
 
 
-void offlineMessages(List *list, int fd, void (*fn)(int, char *, int), pthread_mutex_t *mutex) {
-  pthread_mutex_lock(mutex);
-  Node *temp = list->head;
-  int len;
-  while(temp) {
-    char *data = (char *)temp->data;
-    len = strlen(data);
-    fn(fd, data, len);
-    temp=temp->next;
-  }
-  pthread_mutex_unlock(mutex);
-}
-
 
 //Don't need to make these thread safe because assuming it will only be used
 //in the main thread
@@ -271,14 +258,5 @@ void deleteList(List *list) {
   while (list->head) {
     void *temp = popFront(list);
     free(temp);
-  }
-}
-
-
-void deleteOfflineMessageList(List *list) {
-  while(list->head) {
-    UserData *temp = (UserData *)popFront(list);
-    deleteList((List *)temp->offlineMessages);
-    free(temp->offlineMessages);
   }
 }

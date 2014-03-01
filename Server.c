@@ -51,7 +51,6 @@ int servFd;
 void Die(char *);
 void *threadFn(void *);
 void broadcast(void *, char *, int);
-void sendMessages(int, char *, int);
 int checkUserName(char *);
 int checkPassword(char *, int);
 void ctrlCHandler(int);
@@ -114,8 +113,6 @@ int main(int argc, char **argv) {
     user = malloc(sizeof(UserData));
     memset(user, 0, sizeof(UserData));
     memcpy(user->userName, usernames[a], strlen(usernames[a]));
-    user->offlineMessages = malloc(sizeof(List));   //Allocating the offline messages list.
-    initialize((List *)user->offlineMessages);
     insert(allUsers, user, &mutex);
   }
 
@@ -363,10 +360,21 @@ void *threadFn(void *arg) {
     currentUser->loggedIn = 1;
 
     //We have some offline messages that we have to print. 
-    write(mySock, "Printing offline messages.\n", 27);
-    offlineMessages((List *)currentUser->offlineMessages, mySock, sendMessages, &mutex);
-    write(mySock, "\n", 1);
-    deleteList((List *)currentUser->offlineMessages);
+    if(currentUser->offlineMessageCount>0) {
+      int i;
+      int len;
+      write(mySock, "Offline Message Queue.\n", 23);
+      for(i = 0; i < currentUser->offlineMessageCount; i++) {
+        len = strlen(currentUser->messageQueue[i]);
+        write(mySock, currentUser->messageQueue[i], len);
+        write(mySock, "\n", 1);
+      }
+      write(mySock, "\n", 1);
+
+      //Now that we've seen them already
+      currentUser->offlineMessageCount=0;
+      memset(currentUser->messageQueue, 0, MAXMESSAGES*MSGSIZE);
+    }
   }
 
   while(1) {
@@ -484,10 +492,9 @@ void *threadFn(void *arg) {
         } 
         else {  
           //Offline messaging procedure
-          List *offlineMsg = (List *)toUser->offlineMessages;
-          char *offlineMessage = malloc(messageLen);
-          memcpy(offlineMessage, message, messageLen);
-          insert(offlineMsg, offlineMessage, &mutex);
+          pthread_mutex_lock(&mutex); //Since we're editing this users data structure
+          memcpy(toUser->messageQueue[toUser->offlineMessageCount++], message, messageLen);
+          pthread_mutex_unlock(&mutex);
         }
 
       } else {  //The user don't exist or trying to message myself
@@ -536,12 +543,6 @@ void *threadFn(void *arg) {
 void broadcast(void *ptr, char *message, int len) {
   UserData *data = (UserData *)ptr;
   int sock = data->sockNum;
-  write(sock, "\n", 1);
-  write(sock, message, len);
-  write(sock, "\n", 1);
-}
-
-void sendMessages(int sock, char *message, int len) {
   write(sock, "\n", 1);
   write(sock, message, len);
   write(sock, "\n", 1);
@@ -615,7 +616,7 @@ void ctrlCHandler(int sig) {
 
   //Have to cancel all of the threads here. 
   cancelThreads(threads);
-  deleteOfflineMessageList(allUsers);
+
   deleteList(allUsers);
   free(allUsers);
   deleteList(threads);

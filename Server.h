@@ -13,7 +13,10 @@ typedef struct UserData {
   time_t lastLogout;	//When did this user last log out?
   char userName[MAXCHARS];	//Whats this users name?
   int loggedIn;	//Is this user logged in?
-  void *offlineMessages;
+
+  //MIGHT HAVE TO CHANGE LATER. DEPENDS ON STACK USAGE
+  char messageQueue[MAXMESSAGES][MSGSIZE];	//The queue of offline messages
+  int offlineMessageCount;
 } UserData;
 
 
@@ -34,6 +37,7 @@ typedef struct WrongCounts {
 	char userName[MAXCHARS];
 	int wrongCount;
 } WrongCounts;
+
 
 
 #endif

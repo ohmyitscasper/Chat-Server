@@ -29,9 +29,8 @@ void cancelThreads(List *);
 void whoelse(List *, char *, void *, pthread_mutex_t *);
 void wholasthr(List *, char *, void *, int, pthread_mutex_t *);
 void broadcastMessage(List *, char *, int,  void (*fn)(void *, char *, int), pthread_mutex_t *);
-void offlineMessages(List *, int, void (*fn)(int, char *, int), pthread_mutex_t *);
 void deleteList(List *);
-void deleteOfflineMessageList(List *);
+
 
 
 
