@@ -231,8 +231,6 @@ void *threadFn(void *arg) {
 
     //If the login information is correct
     if(!passright) {
-      printf("This nigga's password is right: %s\n", tempUnameBuf);
-
       //Checking if the user exists in the list     
       currentUser = findUser(allUsers, tempUnameBuf, &mutex);
       if(currentUser) {
@@ -517,7 +515,7 @@ void *threadFn(void *arg) {
 
   }
 
-  //Remove the thread from the list of threads first. 
+  //Remove the thread from the list of threads first. t
   removeThread(threads, pthread_self(), &mutex);
   pthread_exit(NULL);
   return NULL;

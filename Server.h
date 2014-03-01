@@ -5,12 +5,12 @@
 #define MAXUSERS 100
 
 typedef struct UserData {
-  unsigned long IP;	//What's this nigga's IP number?
-  int sockNum;	//What's this nigga's socket number?
-  time_t lastLogin;	//When did this nigga last log in?
-  time_t lastLogout;	//When did this nigga last log out?
-  char userName[MAXCHARS];	//Whats this niggas name?
-  int loggedIn;	//Is this nigga logged in?
+  unsigned long IP;	//What's this user's IP number?
+  int sockNum;	//What's this user's socket number?
+  time_t lastLogin;	//When did this user last log in?
+  time_t lastLogout;	//When did this user last log out?
+  char userName[MAXCHARS];	//Whats this users name?
+  int loggedIn;	//Is this user logged in?
 } UserData;
 
 
