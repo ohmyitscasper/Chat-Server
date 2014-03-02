@@ -135,9 +135,11 @@ int main(int argc, char **argv) {
     Die("listen() failed");
 
 
-  printf("Server started. Listening on port %d\n", portNum);
+  printf("Server started.\n");
 
   while(1) {
+
+    printf("Listening on port %d\n", portNum);
     //Accept a connection
     if((cliFd = accept(servFd, (struct sockaddr *)&cli_addr, (socklen_t *)&cliLen)) < 0) 
       Die("accept() failed");
@@ -219,16 +221,35 @@ void *threadFn(void *arg) {
 
     //Prompting for username
     write(mySock, "Username: ", 10);
-    if((tempRecvBufSize=recv(mySock, tempUnameBuf, MAXCHARS, 0)) < 0)
-      Die("recv failed");
+    tempRecvBufSize = recv(mySock, tempUnameBuf, MAXCHARS, 0);
+
+    printf("temprecvbufsize: %d\n", tempRecvBufSize);
+    //We just got garbage input.
+    if(tempRecvBufSize<=0) {
+      printf("Exiting this thread. Error.\n");
+      //Remove the thread from the list of threads first. t
+      pthread_t *thread = (pthread_t *)removeThread(threads, pthread_self(), &mutex);
+      free(thread);
+      pthread_exit(NULL);
+      return NULL;
+    }
     uindex = checkUserName(tempUnameBuf);
     unameLen = strlen(tempUnameBuf);
     printf("Username buf: %s\n", tempUnameBuf);
 
     //Prompt the user for the password
     write(mySock, "Password: ", 10);
-    if((tempRecvBufSize=recv(mySock, tempPassBuf, MAXCHARS, 0)) < 0)
-      Die("recv failed");
+    tempRecvBufSize = recv(mySock, tempPassBuf, MAXCHARS, 0);
+
+    //We just got garbage input.
+    if(tempRecvBufSize<=0){ //The user did something stupid.
+      printf("Exiting this thread. Error.\n");
+      //Remove the thread from the list of threads first. t
+      pthread_t *thread = (pthread_t *)removeThread(threads, pthread_self(), &mutex);
+      free(thread);
+      pthread_exit(NULL);
+      return NULL;
+    }
     passright = checkPassword(tempPassBuf, uindex);
 
     /* At this point we know if the user should be authenticated or not. */
@@ -397,10 +418,17 @@ void *threadFn(void *arg) {
 
     write(mySock, "Say a command.\n", 15);
 
-    //If this user doesn't give us good commands in a timely manner, just log him out.
-    if((tempRecvBufSize=recv(mySock, dataRecvBuf, MAXRECVBUF, 0)) < 0) {
+    tempRecvBufSize = recv(mySock, dataRecvBuf, MAXRECVBUF, 0);
+
+    //We just got garbage input.
+    if(tempRecvBufSize<=0) {
       sprintf(dataRecvBuf, "logout");
     }
+
+    // //If this user doesn't give us good commands in a timely manner, just log him out.
+    // if((tempRecvBufSize=recv(mySock, dataRecvBuf, MAXRECVBUF, 0)) < 0) {
+    //   sprintf(dataRecvBuf, "logout");
+    // }
 
     /* Implementation of whoelse command */
     if(!strncmp(dataRecvBuf, "whoelse", WHOELSE)) {
