@@ -30,12 +30,9 @@
 
 
 #define BLOCK_TIME 60       //THIS QUANTITY IS IN SECS. IF YOU EDIT IT PLEASE LEAVE IT IN SECS AS I USE IT AS SECS.
-#define LAST_HOUR  0.02     //THIS QUANTITY IS IN HOURS. IF YOU EDIT IT PLEASE LEAVE IT IN HOURS AS I USE IT AS HOURS.
-                            //  you can just do 0.5 or whatever you want.
-#define TIME_OUT   30       //THIS QUANTITY IS IN MINS. IF YOU EDIT IT PLEASE LEAVE IT IN MINS AS I USE IT AS MINS.
+#define LAST_HOUR  3600     //THIS QUANTITY IS IN SECS. IF YOU EDIT IT PLEASE LEAVE IT IN SECS AS I USE IT AS SECS.
+#define TIME_OUT   10       //THIS QUANTITY IS IN SECS. IF YOU EDIT IT PLEASE LEAVE IT IN SECS AS I USE IT AS SECS.
 
-#define LAST_HR_SECS (LAST_HOUR*3600)
-#define TIME_OUT_SECS (TIME_OUT*60)
 
 //Some global variables to be used
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -86,12 +83,14 @@ int main(int argc, char **argv) {
   threads = malloc(sizeof(List));
   blocks = malloc(sizeof(List));
 
+
   //Initializing variables as well as the lists
   cliLen = sizeof(cli_addr);
   portNum = atoi(argv[1]);
   initialize(allUsers);
   initialize(threads);
   initialize(blocks);
+
 
   //setting the uname and pw arrays to 0
   int y,z;
@@ -150,6 +149,7 @@ int main(int argc, char **argv) {
     request->IP = cli_addr.sin_addr.s_addr;
     request->sockNum = cliFd;
 
+
     printf("Received request from ip: %lu\tDispatching new thread with descriptor: %d\n", request->IP, request->sockNum);
     pthread_create(thread, NULL, &threadFn, request);
 
@@ -198,10 +198,14 @@ void *threadFn(void *arg) {
   int sendDataLen = 0;
   int newUser = 1;  //Used to determine later on if we need to allocate memory for a new user OR just use the same memory.
   UserData* currentUser = NULL;
+  struct timeval tv;
 
   //This list needs to remain local to the thread as per assignment 
   List *names = malloc(sizeof(List));
   initialize(names);
+
+  tv.tv_sec = TIME_OUT;  /* timeout parameter */
+  tv.tv_usec = 0;  // Not init'ing this can cause strange errors
 
   pthread_cleanup_push(threadCleanup, names);
 
@@ -379,6 +383,9 @@ void *threadFn(void *arg) {
     }
   }
 
+  //Set a timeout for this socket
+  setsockopt(mySock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(struct timeval));
+
   /*----------------------------THE WORKHORSE LOOP-------------------------*/
   while(1) {
     printf("\nTraversing all users:\n");
@@ -389,10 +396,11 @@ void *threadFn(void *arg) {
     memset(dataRecvBuf, 0, MAXRECVBUF);
 
     write(mySock, "Say a command.\n", 15);
-    if((tempRecvBufSize=recv(mySock, dataRecvBuf, MAXRECVBUF, 0)) < 0)
-      Die("recv failed");
 
-
+    //If this user doesn't give us good commands in a timely manner, just log him out.
+    if((tempRecvBufSize=recv(mySock, dataRecvBuf, MAXRECVBUF, 0)) < 0) {
+      sprintf(dataRecvBuf, "logout");
+    }
 
     /* Implementation of whoelse command */
     if(!strncmp(dataRecvBuf, "whoelse", WHOELSE)) {
@@ -426,7 +434,7 @@ void *threadFn(void *arg) {
 
       //Send it to wholasthr to get filled in.
       //Also give whoelse our pointer so it knows 
-      wholasthr(allUsers, listOfUsers, (void *)currentUser, LAST_HR_SECS, &mutex);
+      wholasthr(allUsers, listOfUsers, (void *)currentUser, LAST_HOUR, &mutex);
       sendDataLen = strlen(listOfUsers);
 
       //Send the buffer
@@ -592,6 +600,7 @@ void *threadFn(void *arg) {
       now = time(NULL);
       currentUser->lastLogout=now;
       currentUser->loggedIn=0;
+      write(mySock, "Logging off.\n", 13);
       break;
     }
 
