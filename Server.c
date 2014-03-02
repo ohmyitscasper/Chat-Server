@@ -31,7 +31,7 @@
 
 #define BLOCK_TIME 60       //THIS QUANTITY IS IN SECS. IF YOU EDIT IT PLEASE LEAVE IT IN SECS AS I USE IT AS SECS.
 #define LAST_HOUR  3600     //THIS QUANTITY IS IN SECS. IF YOU EDIT IT PLEASE LEAVE IT IN SECS AS I USE IT AS SECS.
-#define TIME_OUT   10       //THIS QUANTITY IS IN SECS. IF YOU EDIT IT PLEASE LEAVE IT IN SECS AS I USE IT AS SECS.
+#define TIME_OUT   100       //THIS QUANTITY IS IN SECS. IF YOU EDIT IT PLEASE LEAVE IT IN SECS AS I USE IT AS SECS.
 
 
 //Some global variables to be used
@@ -454,9 +454,9 @@ void *threadFn(void *arg) {
 
       //Adding our name to the message so everyone knows who its from. 
 
-      memcpy(message, tempUnameBuf, unameLen-1);
-      message[unameLen-1] = ':';
-      message[unameLen] = ' ';
+      memcpy(message, tempUnameBuf, unameLen);
+      message[unameLen] = ':';
+      message[unameLen+1] = ' ';
 
       char tempBuf[BCASTSIZE];
       sscanf(dataRecvBuf, "broadcast %[^\n]s", tempBuf);
@@ -483,9 +483,9 @@ void *threadFn(void *arg) {
       sscanf(dataRecvBuf, "message %s %[^\n]s", user, tempBuf);
       printf("To which user shall we deliver? This one: %s\n", user);
 
-      memcpy(message, tempUnameBuf, unameLen-1);
-      message[unameLen-1] = ':';
-      message[unameLen] = ' ';
+      memcpy(message, tempUnameBuf, unameLen);
+      message[unameLen] = ':';
+      message[unameLen+1] = ' ';
 
       strcat(message, tempBuf);
       printf("Private message.\n%s\n", message);
@@ -498,7 +498,7 @@ void *threadFn(void *arg) {
       //If that user has blocked us, we can't send them any messages. 
       if(blocked) { 
         memset(message, 0, MSGSIZE);
-        sprintf(message, "You cannot send any message to %s. You have been blocked by the user.\n", user);
+        sprintf(message, "You cannot send any message to %s. You have blocked/been blocked by the user.\n", user);
         messageLen = strlen(message);
         write(mySock, message, messageLen);
         continue;
@@ -550,6 +550,13 @@ void *threadFn(void *arg) {
         }
         //Nope we're not
         else {
+
+          //Check if we have already blocked this user
+          if(blockedAlready(currentUser, blockUser, &mutex)) {
+            write(mySock, "Already blocked.\n", 17);
+            continue;
+          }
+
           //I'm gonna insert this user on the list of blocked users that I own.
           insert((List *)currentUser->blockedUsers, blockUser, &mutex);
           sprintf(message, "You have successfully blocked %s from sending you messages.\n", user);
@@ -578,6 +585,13 @@ void *threadFn(void *arg) {
         }
         //Nope we're not
         else {
+
+          //Check to see if we have actually blocked this user.
+          if(!blockedAlready(currentUser, unblockUser, &mutex)) {
+            write(mySock, "User not blocked.\n", 18);
+            continue;
+          }
+
           char message[MSGSIZE/2];
           memset(message, 0, MSGSIZE/2);
           sprintf(message, "You have successfully unblocked %s.\n", user);
@@ -600,7 +614,13 @@ void *threadFn(void *arg) {
       now = time(NULL);
       currentUser->lastLogout=now;
       currentUser->loggedIn=0;
-      write(mySock, "Logging off.\n", 13);
+
+      //Check how we got here
+      if(tempRecvBufSize<0)   
+        write(mySock, "Timed out.\n", 11);
+      else
+        write(mySock, "Logging off.\n", 13);
+      
       break;
     }
 
@@ -672,11 +692,16 @@ int checkPassword(char *passwd, int num) {
   return a;
 }
 
+void logoffMessage(int sock, char *message) {
+  int len = strlen(message);
+  write(sock, message, len);
+}
+
 void Die(char *message) {
   //Cancelling all running threads
   cancelThreads(threads);
   deleteBlockList(allUsers);
-  deleteList(allUsers);
+  deleteListWithMessage(allUsers, logoffMessage);
   free(allUsers);
   deleteList(threads);
   free(threads);
@@ -692,7 +717,7 @@ void ctrlCHandler(int sig) {
   cancelThreads(threads);
 
   deleteBlockList(allUsers);
-  deleteList(allUsers);
+  deleteListWithMessage(allUsers, logoffMessage);
   free(allUsers);
   deleteList(threads);
   free(threads);

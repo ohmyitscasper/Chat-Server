@@ -6,7 +6,7 @@ default:all
 
 Server: Server.c LinkedList.c LinkedList.h
 
-Client: Client.c LinkedList.c LinkedList.h
+Client: Client.c
 
 .PHONY: all
 all: Server Client

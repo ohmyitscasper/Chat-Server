@@ -30,8 +30,10 @@ void whoelse(List *, char *, void *, pthread_mutex_t *);
 void wholasthr(List *, char *, void *, int, pthread_mutex_t *);
 void broadcastMessage(List *, char *, int,  void (*fn)(void *, char *, int), pthread_mutex_t *);
 int userBlocked(UserData *, UserData* , pthread_mutex_t *);
+int blockedAlready(UserData *, UserData *, pthread_mutex_t *);
 void deleteList(List *);
 void deleteBlockList(List *);
+void deleteListWithMessage(List *, void (*fn)(int, char *));
 
 
 

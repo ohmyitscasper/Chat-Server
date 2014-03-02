@@ -284,6 +284,23 @@ int userBlocked(UserData *from, UserData* to, pthread_mutex_t *mutex) {
   return blocked;
 }
 
+int blockedAlready(UserData *from, UserData *to, pthread_mutex_t *mutex) {
+  int possible = 0;
+  pthread_mutex_lock(mutex);
+  List *list = (List *)from->blockedUsers;
+  Node *temp = list->head;
+  while(temp) {
+    UserData *data = (UserData *)temp->data;
+    if(data==to){
+      possible = 1;
+      break;
+    }
+    temp=temp->next;
+  }
+  pthread_mutex_unlock(mutex);
+  return possible;
+}
+
 
 //Don't need to make these thread safe because assuming it will only be used
 //in the main thread
@@ -304,6 +321,16 @@ void *popFront(List *list) {
 void deleteList(List *list) {
   while (list->head) {
     void *temp = popFront(list);
+    free(temp);
+  }
+}
+
+void deleteListWithMessage(List *list, void (*fn)(int, char *)) {
+  while (list->head) {
+    UserData* temp = (UserData *)popFront(list);
+    if(temp->loggedIn) {
+      fn(temp->sockNum, "Logging off.");
+    }
     free(temp);
   }
 }
