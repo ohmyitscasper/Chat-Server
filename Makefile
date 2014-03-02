@@ -1,10 +1,10 @@
-CC=/usr/local/bin/gcc-4.6
+CC=gcc
 CFLAGS= -Wall
 LDFLAGS= -lpthread
 
 default:all
 
-Server: Server.c LinkedList.c LinkedList.h
+Server: Server.c LinkedList.c
 
 Client: Client.c
 

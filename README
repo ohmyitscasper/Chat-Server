@@ -1,6 +1,70 @@
 COMS 4119 Chat Server
-Done in C.
+Programmed in C.
 
-Functionalities:
 
-Author: Vanshil Shah
+NOTE: THE SERVER AND CLIENT ARE MULTITHREADED USING THE PTHREAD LIBRARY WHICH IS A PART OF THE GNU C LIBRARY
+
+Steps to run:
+	1. Type 
+			make
+
+		to compile the program
+	2. To run the server use:
+
+			./Server <port number>
+
+	3. To run the client use:
+
+			./Client <IP> <port number>
+
+		Note: please use a valid ip address or the connect will fail for the client.
+			e.g, ./Client 127.0.0.1 4119
+
+	4. Upon a client connecting to the Server, the server will prompt for a Username right away
+
+	5. After the username is entered, the server will prompt for the password.
+	
+	6. If the authentication is successful, the server will log the user in.
+		The server will send a Welcome message.
+	
+	7. If not, then the Server will just keep prompting for username and passwords. 
+		If 3 or more attempts are made by a user, then the server will block that user. 
+	
+	8. After the user is logged in, the user can issue the following commands:
+		whoelse
+		wholasthr
+		broadcast <message>
+		message <user> <message>
+		block <user>
+		unblock <user>
+		logout
+
+NOTE AGAIN: The code has been compiled using gcc 4.6, gcc 4.7 as well as clang(standard OSX c compiler). It compiles and runs on all 3.
+
+Details of the Code:
+
+Server.c
+
+	- The code for the server is split up into 3 main sections and a bunch of other helper functions.
+		1. The main function
+		2. The thread function
+		3. The Linked List
+		
+	- The first thing the main function does is read in the file called user_pass.txt
+		The usernames and passwords get stored into a
+
+	- The main function is where the socket stuff is initialized and where the Server starts listening for connections.
+
+	- As requests come in to connect to our server, I create a new thread for each connection and to that thread I give the IP address
+		of the connection and the file descriptor at which the connection is being attempted. 
+		- This is all the main method really does. Just accepting connections and dispatching threads. 
+	- The second important part of the program is the thread function which is responsible for communicating with the client. This 
+		is broken up into 2 main sections:
+			1. Authentication
+			2. Commands
+		Authentication:
+		- I prompt the user at the socket provided for the username
+		- I prompt the user at the socket provided for the password
+
+		To authenticate, I have two helper functions which check the username and check the password for the given username. 
+			- The checkusername function returns to us the index at which 
