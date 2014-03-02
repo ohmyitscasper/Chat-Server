@@ -113,6 +113,8 @@ int main(int argc, char **argv) {
     user = malloc(sizeof(UserData));
     memset(user, 0, sizeof(UserData));
     memcpy(user->userName, usernames[a], strlen(usernames[a]));
+    user->blockedUsers = malloc(sizeof(List));  
+    initialize((List *)user->blockedUsers);
     insert(allUsers, user, &mutex);
   }
 
@@ -377,6 +379,7 @@ void *threadFn(void *arg) {
     }
   }
 
+  /*----------------------------THE WORKHORSE LOOP-------------------------*/
   while(1) {
     printf("\nTraversing all users:\n");
     traverse(allUsers);
@@ -482,6 +485,16 @@ void *threadFn(void *arg) {
 
       //Find the user first
       UserData *toUser = findUser(allUsers, user, &mutex);
+      int blocked = userBlocked(currentUser, toUser, &mutex);
+      
+      //If that user has blocked us, we can't send them any messages. 
+      if(blocked) { 
+        memset(message, 0, MSGSIZE);
+        sprintf(message, "You cannot send any message to %s. You have been blocked by the user.\n", user);
+        messageLen = strlen(message);
+        write(mySock, message, messageLen);
+        continue;
+      }
       if(toUser && toUser!=currentUser) {  //If the user exists
         //Checking if the user is logged in or not
         if(toUser->loggedIn) {
@@ -507,18 +520,69 @@ void *threadFn(void *arg) {
     }
 
 
-
-
+    /* Blocking a user */
     if(!strncmp(dataRecvBuf, "block", BLOCK)) {
-      //Do the whoelse stuff here
+      //Do the blocking stuff here
+      char user[MAXCHARS];
+      char message[MSGSIZE/2];
+      memset(user, 0, MAXCHARS);
+      memset(message, 0, MSGSIZE/2);
+      int len;
 
+      sscanf(dataRecvBuf, "block %s", user);
 
+      UserData *blockUser = findUser(allUsers, user, &mutex);
 
+      //Make sure the user we're trying to block isn't ourselves.
+      if(blockUser) {
+
+        //Are we trying to block ourselves?
+        if(blockUser==currentUser) {
+          write(mySock, "Can't block yourself.\n", 22);
+        }
+        //Nope we're not
+        else {
+          //I'm gonna insert this user on the list of blocked users that I own.
+          insert((List *)currentUser->blockedUsers, blockUser, &mutex);
+          sprintf(message, "You have successfully blocked %s from sending you messages.\n", user);
+          len = strlen(message);
+          write(mySock, message, len);
+        }
+      } else {
+        write(mySock, "User doesn't exist.\n", 20);
+      }
       continue; //Only allow 1 command per round
     }
+
+
+    /* Unblocking a user */
     if(!strncmp(dataRecvBuf, "unblock", UNBLOCK)) {
       //Do the whoelse stuff here
+      char user[MAXCHARS];
+      memset(user, 0, MAXCHARS);
+      sscanf(dataRecvBuf, "unblock %s", user);
 
+      UserData *unblockUser = findUser(allUsers, user, &mutex);
+      if(unblockUser) {
+        //Make sure the user we're trying to block isn't ourselves.
+        if(unblockUser==currentUser) {
+          write(mySock, "Can't unblock yourself.\n", 24);
+        }
+        //Nope we're not
+        else {
+          char message[MSGSIZE/2];
+          memset(message, 0, MSGSIZE/2);
+          sprintf(message, "You have successfully unblocked %s.\n", user);
+          int len = strlen(message);
+
+          //Does the actual removing
+          removeItem((List *)currentUser->blockedUsers, unblockUser, &mutex);
+
+          write(mySock, message, len);
+        }
+      } else {
+        write(mySock, "User doesn't exist.\n", 20);
+      }
 
 
       continue; //Only allow 1 command per round
@@ -534,7 +598,8 @@ void *threadFn(void *arg) {
   }
 
   //Remove the thread from the list of threads first. t
-  removeThread(threads, pthread_self(), &mutex);
+  pthread_t *thread = (pthread_t *)removeThread(threads, pthread_self(), &mutex);
+  free(thread);
   pthread_exit(NULL);
   return NULL;
 }
@@ -601,7 +666,7 @@ int checkPassword(char *passwd, int num) {
 void Die(char *message) {
   //Cancelling all running threads
   cancelThreads(threads);
-  
+  deleteBlockList(allUsers);
   deleteList(allUsers);
   free(allUsers);
   deleteList(threads);
@@ -617,6 +682,7 @@ void ctrlCHandler(int sig) {
   //Have to cancel all of the threads here. 
   cancelThreads(threads);
 
+  deleteBlockList(allUsers);
   deleteList(allUsers);
   free(allUsers);
   deleteList(threads);

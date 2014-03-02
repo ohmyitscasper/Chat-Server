@@ -14,9 +14,12 @@ typedef struct UserData {
   char userName[MAXCHARS];	//Whats this users name?
   int loggedIn;	//Is this user logged in?
 
-  //MIGHT HAVE TO CHANGE LATER. DEPENDS ON STACK USAGE
+  //MIGHT HAVE TO CHANGE LATER. DEPENDS ON MEMORY USAGE
   char messageQueue[MAXMESSAGES][MSGSIZE];	//The queue of offline messages
   int offlineMessageCount;
+
+  //MIGHT ALSO HAVE TO CHANGE LATER BASED ON MEMORY USAGE
+  void *blockedUsers;	//This is our list that will hold UserData *'s.
 } UserData;
 
 

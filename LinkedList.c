@@ -42,8 +42,7 @@ void* removeItem(List *list, void *data, pthread_mutex_t *mutex) {
   return NULL;
 }
 
-/***********************************************************************
-    MIGHT NOT NEED THE FOLLOWING TWO FUNCTIONS BELOW.
+
 /* TODO: Nothing
    Used to remove a thread from the list of threads
  */
@@ -68,7 +67,8 @@ void* removeThread(List *list, pthread_t data, pthread_mutex_t *mutex) {
   return NULL;
 }
 
-
+/***********************************************************************
+    MIGHT NOT NEED THE FOLLOWING FUNCTION BELOW
 /* TODO: Figure out what to do with this one
 
 */
@@ -92,7 +92,8 @@ int find(List *list, void *data, pthread_mutex_t *mutex) {
 
 
 
-/** A specialized find function that can look through a list and find if a given 
+/** 
+  * A specialized find function that can look through a list and find if a given 
   * username is blocked or not.
   * 
   * Returns: the pointer to the struct if found
@@ -135,6 +136,15 @@ WrongCounts* findWrongCount(List *list, char *name, pthread_mutex_t *mutex) {
   return found;
 }
 
+
+/* 
+ *
+ *  Tells us if a particular user exists in the list of users or not.
+ *  regardless of if they are online 
+ *  
+ *  Returns:  The userdata structure if the user is found on the list
+ *            NULL otherwise.
+ */
 UserData* findUser(List *list, char* name, pthread_mutex_t *mutex) {
   UserData* found = NULL;
   int len = strlen(name);
@@ -156,7 +166,7 @@ UserData* findUser(List *list, char* name, pthread_mutex_t *mutex) {
 }
 
 
-//Not threadsafe becuase it won't ever get called put in for debugging
+//Not threadsafe becuase it won't ever get called. Put in for debugging purposes.
 void traverse(List *list) {
   Node *temp = list->head;
   while(temp) {
@@ -236,6 +246,43 @@ void broadcastMessage(List *list, char *message, int len, void (*fn)(void *, cha
   pthread_mutex_unlock(mutex);
 }
 
+/* Checks if the user whom we're trying to send to has blocked us or not 
+ *
+ *  Returns 0 if the user has not blocked us
+ *          1 if they have
+ */
+int userBlocked(UserData *from, UserData* to, pthread_mutex_t *mutex) {
+  int blocked=0;
+  pthread_mutex_lock(mutex);
+  List *list = (List *)to->blockedUsers;
+  Node *temp = list->head;
+  while(temp) {
+    UserData *data = (UserData *)temp->data;
+    if(data==from) {  //The user is logged in currently
+      blocked=1;
+      break;
+    }
+    temp=temp->next;
+  }
+  if(blocked) {
+    pthread_mutex_unlock(mutex);
+    return blocked;
+  }
+
+  //Checking if we've blocked them either
+  list = (List *)from->blockedUsers;
+  temp = list->head;
+  while(temp) {
+    UserData *data = (UserData *)temp->data;
+    if(data==to) {  //The user is logged in currently
+      blocked=1;
+      break;
+    }
+    temp=temp->next;
+  }
+  pthread_mutex_unlock(mutex);
+  return blocked;
+}
 
 
 //Don't need to make these thread safe because assuming it will only be used
@@ -260,3 +307,21 @@ void deleteList(List *list) {
     free(temp);
   }
 }
+
+void deleteListNoFree(List *list) {
+  while (list->head)
+    popFront(list);
+}
+
+void deleteBlockList(List *list) {
+  Node *temp = list->head;
+  while(temp) {
+    UserData *data = (UserData *)temp->data;
+    List *blockList = (List *)data->blockedUsers;
+    deleteListNoFree(blockList);
+    free(blockList);
+    temp=temp->next;
+  }
+}
+
+
