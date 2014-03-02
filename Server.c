@@ -493,17 +493,21 @@ void *threadFn(void *arg) {
 
       //Find the user first
       UserData *toUser = findUser(allUsers, user, &mutex);
-      int blocked = userBlocked(currentUser, toUser, &mutex);
-      
-      //If that user has blocked us, we can't send them any messages. 
-      if(blocked) { 
-        memset(message, 0, MSGSIZE);
-        sprintf(message, "You cannot send any message to %s. You have blocked/been blocked by the user.\n", user);
-        messageLen = strlen(message);
-        write(mySock, message, messageLen);
-        continue;
-      }
+
       if(toUser && toUser!=currentUser) {  //If the user exists
+
+        //Check if there is block relationship
+        int blocked = userBlocked(currentUser, toUser, &mutex);
+        
+        //If that user has blocked us, we can't send them any messages. 
+        if(blocked) { 
+          memset(message, 0, MSGSIZE);
+          sprintf(message, "You cannot send any message to %s. You have blocked/been blocked by the user.\n", user);
+          messageLen = strlen(message);
+          write(mySock, message, messageLen);
+          continue;
+        }
+
         //Checking if the user is logged in or not
         if(toUser->loggedIn) {
           //Normal user messaging procedure
@@ -620,7 +624,7 @@ void *threadFn(void *arg) {
         write(mySock, "Timed out.\n", 11);
       else
         write(mySock, "Logging off.\n", 13);
-      
+
       break;
     }
 
