@@ -31,7 +31,7 @@
 
 #define BLOCK_TIME 60       //THIS QUANTITY IS IN SECS. IF YOU EDIT IT PLEASE LEAVE IT IN SECS AS I USE IT AS SECS.
 #define LAST_HOUR  3600     //THIS QUANTITY IS IN SECS. IF YOU EDIT IT PLEASE LEAVE IT IN SECS AS I USE IT AS SECS.
-#define TIME_OUT   100       //THIS QUANTITY IS IN SECS. IF YOU EDIT IT PLEASE LEAVE IT IN SECS AS I USE IT AS SECS.
+#define TIME_OUT   10       //THIS QUANTITY IS IN SECS. IF YOU EDIT IT PLEASE LEAVE IT IN SECS AS I USE IT AS SECS.
 
 
 //Some global variables to be used
@@ -621,7 +621,7 @@ void *threadFn(void *arg) {
 
       //Check how we got here
       if(tempRecvBufSize<0)   
-        write(mySock, "Timed out.\n", 11);
+        write(mySock, "Logging off. Timed out.\n", 24);
       else
         write(mySock, "Logging off.\n", 13);
 
