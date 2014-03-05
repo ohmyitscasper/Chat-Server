@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
   	fflush(stdout);
  	
  	//If we see this. lets just log out.
- 	if(!strncmp(recvBuf, "Logging off.", 12)) {
+ 	if(!strncmp(recvBuf, "Logging off", 11)) {
       break;
     }
     memset(recvBuf, 0, RECVBUFSIZE);

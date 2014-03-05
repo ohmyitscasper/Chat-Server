@@ -1,8 +1,8 @@
 COMS 4119 Chat Server
 Programmed in C.
 
-
-NOTE: THE SERVER AND CLIENT ARE MULTITHREADED USING THE PTHREAD LIBRARY WHICH IS A PART OF THE GNU C LIBRARY
+NOTE: The code has been compiled using gcc 4.6, gcc 4.7 as well as clang(standard OSX c compiler). It compiles and runs on all 3.
+		THE SERVER AND CLIENT ARE MULTITHREADED USING THE PTHREAD LIBRARY WHICH IS A PART OF THE GNU C LIBRARY
 
 Steps to run:
 	1. Type 
@@ -41,7 +41,6 @@ Steps to run:
 		unblock <user>
 		logout
 
-NOTE AGAIN: The code has been compiled using gcc 4.6, gcc 4.7 as well as clang(standard OSX c compiler). It compiles and runs on all 3.
 
 Details of the Code:
 
@@ -83,4 +82,21 @@ Server.c
 		- The block/unblock commands check the validity and apply the appropriate blocks using helper functions in the linked list. 
 		- logout resets a few of the data structures for the user who is logging out, and then terminates the thread and sends the logoff signal to the client. 
 
+	- I have tried my best to make it memory-leak safe and in the test cases that I've tried, I've gotten 0 memory leaks. In the server, I handle Ctrl-c from a user OR from any client. 
+		- When a client hits Ctrl-c, I just kill the thread for that client.
+		- When a user hits Ctrl-c in the server, I gracefully tell the Server to reclaim all memory and exit the server. 
+	- I haven't faced any behavior thats too unexpected as long as the program is run reasonably close to the specifications. 
 
+	ADDITIONAL FEATURE
+	- I'm not sure if this counts as an additional feature, but I've added the feature that allows blocking of ANY username that tries to incorrectly log in 3 times. 
+		This feature can be tested by trying to enter any incorrect username/pw combination.
+
+
+	Debugging purposes:
+		For debugging, the server prints out a bunch of simple messages. 
+
+
+
+Client.c
+	- The code for the client just creates 1 thread, from which to read input from the user and send it to the server and the main thread is used to simply read input from the socket. 
+	- When the client sees "Logging off" from the server, it terminates. 

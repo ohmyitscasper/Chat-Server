@@ -5,6 +5,7 @@
 #include "LinkedList.h"
 
 
+/* Initializes the head to null */
 void initialize(List *list) {
   list->head = NULL;
 }

@@ -416,6 +416,7 @@ void *threadFn(void *arg) {
       sprintf(dataRecvBuf, "logout");
     }
 
+
     /* Implementation of whoelse command */
     if(!strncmp(dataRecvBuf, "whoelse", WHOELSE)) {
 
@@ -503,7 +504,7 @@ void *threadFn(void *arg) {
 
 
       strcat(message, tempBuf);
-      printf("Private message \"\n%s\n\" to %s.\n", message, user);
+      printf("Private message \"%s\" to %s.\n", message, user);
       int messageLen = strlen(message);
 
       //Find the user first
