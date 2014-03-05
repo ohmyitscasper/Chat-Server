@@ -20,6 +20,8 @@ Steps to run:
 		Note: please use a valid ip address or the connect will fail for the client.
 			e.g, ./Client 127.0.0.1 4119
 
+			(localhost doesn't work).
+
 	4. Upon a client connecting to the Server, the server will prompt for a Username right away
 
 	5. After the username is entered, the server will prompt for the password.
@@ -65,6 +67,20 @@ Server.c
 		Authentication:
 		- I prompt the user at the socket provided for the username
 		- I prompt the user at the socket provided for the password
-
 		To authenticate, I have two helper functions which check the username and check the password for the given username. 
-			- The checkusername function returns to us the index at which 
+
+		After authenticating the user, if they provide the correct login information, I send a prompt to the server, "Say a command."
+
+		Commands:
+		The user is prompted to enter a command and when the client sends a command, there are a bunch of if statements that deal with
+			what to do for each command. 
+
+		- The whoelse command sends a query to the linked list, and the linked list returns a list of names with newline characters in betwen. This list is sent to the client. 
+			- The internal algorithm just uses 
+		- The wholasthr command sends a query to the linked list, and using the last login and last logout times, the linked list returns a list of names. 
+		- The broadcast command calls a function in the linked list with a function pointer to the function that will send the broadcast message to the entire list thats online currently.
+		- The private messaging commands build a message string, then check if the user is blocked by/has blocked the user that he is trying to message and also does various sanity checks, and finally sends the message to the user. This message, if the receiving user is offline is stored in an online message buffer with a controllable size. The size paramter is in the Server.h file called MAXMESSAGES - it is currently at 10
+		- The block/unblock commands check the validity and apply the appropriate blocks using helper functions in the linked list. 
+		- logout resets a few of the data structures for the user who is logging out, and then terminates the thread and sends the logoff signal to the client. 
+
+

@@ -30,16 +30,22 @@
 
 
 #define BLOCK_TIME 60       //THIS QUANTITY IS IN SECS. IF YOU EDIT IT PLEASE LEAVE IT IN SECS AS I USE IT AS SECS.
-#define LAST_HOUR  3600     //THIS QUANTITY IS IN SECS. IF YOU EDIT IT PLEASE LEAVE IT IN SECS AS I USE IT AS SECS.
-#define TIME_OUT   10       //THIS QUANTITY IS IN SECS. IF YOU EDIT IT PLEASE LEAVE IT IN SECS AS I USE IT AS SECS.
+#define LAST_HOUR  36     //THIS QUANTITY IS IN SECS. IF YOU EDIT IT PLEASE LEAVE IT IN SECS AS I USE IT AS SECS.
+#define TIME_OUT   100       //THIS QUANTITY IS IN SECS. IF YOU EDIT IT PLEASE LEAVE IT IN SECS AS I USE IT AS SECS.
 
 
 //Some global variables to be used
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 char usernames[FILELINES][MAXCHARS];		
 char passwords[FILELINES][MAXCHARS]; 	
-List *allUsers;
+
+/* List used to keep track of all of the users */
+List *allUsers; 
+
+/* List used to keep track of all of the threads */
 List *threads;
+
+/* List used to keep track of all blocked IP/users */
 List *blocks;
 int servFd;
 
@@ -76,7 +82,7 @@ int main(int argc, char **argv) {
   pthread_t *thread;
   Request *request;
   UserData *user;
-
+  char exitDetect[MAXCHARS];
 
   //Allocating the three lists
   allUsers = malloc(sizeof(List));
@@ -90,6 +96,7 @@ int main(int argc, char **argv) {
   initialize(allUsers);
   initialize(threads);
   initialize(blocks);
+  memset(exitDetect, 0, MAXCHARS);
 
 
   //setting the uname and pw arrays to 0
@@ -138,8 +145,6 @@ int main(int argc, char **argv) {
   printf("Server started.\n");
 
   while(1) {
-
-    printf("Listening on port %d\n", portNum);
     //Accept a connection
     if((cliFd = accept(servFd, (struct sockaddr *)&cli_addr, (socklen_t *)&cliLen)) < 0) 
       Die("accept() failed");
@@ -152,29 +157,21 @@ int main(int argc, char **argv) {
     request->sockNum = cliFd;
 
 
-    printf("Received request from ip: %lu\tDispatching new thread with descriptor: %d\n", request->IP, request->sockNum);
+    printf("Received request from ip: %lu\nDispatching new thread with socket: %d\n", request->IP, request->sockNum);
     pthread_create(thread, NULL, &threadFn, request);
 
     //Inserting this thread into the list of threads.
     insert(threads, (void *)thread, &mutex);
   }
 
-
-  close(servFd);
+  ctrlCHandler(0);  //Our exit routine.
+  //close(servFd);
 }
 
 
-/* Something to consider to be futuristic.
- * Might help with logging out
-
-void threadLogIn(unsigned long myIP, mySock, )
-*/
-
-
-/* Handles all of the communication for the threads
- 
-   Input arg: 
-
+/* 
+ * Handles all of the communication for the threads
+ * The input argument is the request structure above. 
  */
 void *threadFn(void *arg) {
 
@@ -187,8 +184,6 @@ void *threadFn(void *arg) {
 
   //Now that we have acquired the data, we can free the request structure.
   free(request);
-
-  printf("In the thread %d\nRequest IP: %lu Request Socknum: %d\n\n\n", pthread_self(), myIP, mySock);
 
   time_t now;
   int tempRecvBufSize;
@@ -226,7 +221,7 @@ void *threadFn(void *arg) {
     printf("temprecvbufsize: %d\n", tempRecvBufSize);
     //We just got garbage input.
     if(tempRecvBufSize<=0) {
-      printf("Exiting this thread. Error.\n");
+      printf("Exiting this thread abnormally. Probably Ctrl-c on the client side.\n");
       //Remove the thread from the list of threads first. t
       pthread_t *thread = (pthread_t *)removeThread(threads, pthread_self(), &mutex);
       free(thread);
@@ -235,7 +230,6 @@ void *threadFn(void *arg) {
     }
     uindex = checkUserName(tempUnameBuf);
     unameLen = strlen(tempUnameBuf);
-    printf("Username buf: %s\n", tempUnameBuf);
 
     //Prompt the user for the password
     write(mySock, "Password: ", 10);
@@ -243,7 +237,7 @@ void *threadFn(void *arg) {
 
     //We just got garbage input.
     if(tempRecvBufSize<=0){ //The user did something stupid.
-      printf("Exiting this thread. Error.\n");
+      printf("Exiting this thread abnormally. Probably Ctrl-c on the client side.\n");
       //Remove the thread from the list of threads first. t
       pthread_t *thread = (pthread_t *)removeThread(threads, pthread_self(), &mutex);
       free(thread);
@@ -334,7 +328,7 @@ void *threadFn(void *arg) {
       WrongCounts *thisUser = malloc(sizeof(WrongCounts));
       memcpy(thisUser->userName, tempUnameBuf, unameLen);
       thisUser->wrongCount=1;
-      printf("Starting incorrect login count for: %s\n", tempUnameBuf);
+      printf("Starting incorrect login count for the user: %s\n", tempUnameBuf);
       insert(names, (void *)thisUser, &mutex);
       continue;
     }
@@ -409,9 +403,6 @@ void *threadFn(void *arg) {
 
   /*----------------------------THE WORKHORSE LOOP-------------------------*/
   while(1) {
-    printf("\nTraversing all users:\n");
-    traverse(allUsers);
-    printf("\n");
     now = time(NULL);
 
     memset(dataRecvBuf, 0, MAXRECVBUF);
@@ -420,15 +411,10 @@ void *threadFn(void *arg) {
 
     tempRecvBufSize = recv(mySock, dataRecvBuf, MAXRECVBUF, 0);
 
-    //We just got garbage input.
+    //We just got garbage input, so lets just put logout on the recv buffer. 
     if(tempRecvBufSize<=0) {
       sprintf(dataRecvBuf, "logout");
     }
-
-    // //If this user doesn't give us good commands in a timely manner, just log him out.
-    // if((tempRecvBufSize=recv(mySock, dataRecvBuf, MAXRECVBUF, 0)) < 0) {
-    //   sprintf(dataRecvBuf, "logout");
-    // }
 
     /* Implementation of whoelse command */
     if(!strncmp(dataRecvBuf, "whoelse", WHOELSE)) {
@@ -509,14 +495,15 @@ void *threadFn(void *arg) {
       memset(message, 0, MSGSIZE);
 
       sscanf(dataRecvBuf, "message %s %[^\n]s", user, tempBuf);
-      printf("To which user shall we deliver? This one: %s\n", user);
 
       memcpy(message, tempUnameBuf, unameLen);
+
       message[unameLen] = ':';
       message[unameLen+1] = ' ';
 
+
       strcat(message, tempBuf);
-      printf("Private message.\n%s\n", message);
+      printf("Private message \"\n%s\n\" to %s.\n", message, user);
       int messageLen = strlen(message);
 
       //Find the user first
@@ -573,7 +560,7 @@ void *threadFn(void *arg) {
 
       UserData *blockUser = findUser(allUsers, user, &mutex);
 
-      //Make sure the user we're trying to block isn't ourselves.
+      //Make sure the user actually exists
       if(blockUser) {
 
         //Are we trying to block ourselves?
@@ -604,13 +591,15 @@ void *threadFn(void *arg) {
 
     /* Unblocking a user */
     if(!strncmp(dataRecvBuf, "unblock", UNBLOCK)) {
-      //Do the whoelse stuff here
       char user[MAXCHARS];
       memset(user, 0, MAXCHARS);
       sscanf(dataRecvBuf, "unblock %s", user);
 
       UserData *unblockUser = findUser(allUsers, user, &mutex);
+
+      //Make sure the user exists.
       if(unblockUser) {
+
         //Make sure the user we're trying to block isn't ourselves.
         if(unblockUser==currentUser) {
           write(mySock, "Can't unblock yourself.\n", 24);
@@ -652,20 +641,22 @@ void *threadFn(void *arg) {
         write(mySock, "Logging off. Timed out.\n", 24);
       else
         write(mySock, "Logging off.\n", 13);
-
+      
+      //Close the current socket the user is on. 
+      close(currentUser->sockNum);
       break;
     }
 
   }
 
-  //Remove the thread from the list of threads first. t
+  //Remove the thread from the list of threads, and free/exit the thread
   pthread_t *thread = (pthread_t *)removeThread(threads, pthread_self(), &mutex);
   free(thread);
   pthread_exit(NULL);
   return NULL;
 }
 
-/* The function that gets called by the list */
+/* The function that gets called by the list to send a broadcast message. */
 void broadcast(void *ptr, char *message, int len) {
   UserData *data = (UserData *)ptr;
   int sock = data->sockNum;
@@ -724,6 +715,8 @@ int checkPassword(char *passwd, int num) {
   return a;
 }
 
+
+/* Called by deleteListWithMessage to send a logoff message to all users still logged in */
 void logoffMessage(int sock, char *message) {
   int len = strlen(message);
   write(sock, message, len);
@@ -743,6 +736,9 @@ void Die(char *message) {
   exit(1);
 }
 
+
+//Handles a user hitting control C by prompting all threads to die, and 
+//freeing all of the heap allocated memory.
 void ctrlCHandler(int sig) {
 
   //Have to cancel all of the threads here. 
@@ -764,7 +760,7 @@ void ctrlCHandler(int sig) {
   exit(1);
 }
 
-
+/* Thread cleanup handler */
 void threadCleanup(void *arg) {
   printf("In the thread cleanup handler\n");
   deleteList(arg);

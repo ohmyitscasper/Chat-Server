@@ -9,7 +9,7 @@ void initialize(List *list) {
   list->head = NULL;
 }
 
-
+/* Insert an item into the linked list */
 void insert(List *list, void *data, pthread_mutex_t *mutex) {
   pthread_mutex_lock(mutex);
   Node *head = list->head;
@@ -94,7 +94,7 @@ int find(List *list, void *data, pthread_mutex_t *mutex) {
 
 /** 
   * A specialized find function that can look through a list and find if a given 
-  * username is blocked or not.
+  * username is blocked or not by the server. 
   * 
   * Returns: the pointer to the struct if found
   *          otherwise NULL
@@ -117,7 +117,10 @@ BlockedUsers* findBlocked(List *list, char *name, unsigned long IP, pthread_mute
   return found;
 }
 
-
+/**
+  * Looks through a list of WrongCount*'s to return the one thats found 
+  *
+  */
 WrongCounts* findWrongCount(List *list, char *name, pthread_mutex_t *mutex) {
   WrongCounts* found = NULL;
   int len = strlen(name);
@@ -166,6 +169,7 @@ UserData* findUser(List *list, char* name, pthread_mutex_t *mutex) {
 }
 
 
+/** THE FUNCTION BELOW IS ONLY FOR DEBUGGING PURPOSES **/
 //Not threadsafe becuase it won't ever get called. Put in for debugging purposes.
 void traverse(List *list) {
   Node *temp = list->head;
@@ -325,6 +329,11 @@ void deleteList(List *list) {
   }
 }
 
+
+/*
+ *  Delete the entire list of users while sending a message to each of them 
+ *
+ */
 void deleteListWithMessage(List *list, void (*fn)(int, char *)) {
   while (list->head) {
     UserData* temp = (UserData *)popFront(list);
@@ -335,11 +344,19 @@ void deleteListWithMessage(List *list, void (*fn)(int, char *)) {
   }
 }
 
+
+/*
+ *  Delete a list without freeing any of the user data 
+ */
 void deleteListNoFree(List *list) {
   while (list->head)
     popFront(list);
 }
 
+/*
+ *  Delete the list of blocked users held by each user
+ *
+ */
 void deleteBlockList(List *list) {
   Node *temp = list->head;
   while(temp) {
